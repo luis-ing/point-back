@@ -1,0 +1,394 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model CuentaPrincipal {
+  idCuentaPrincipal  Int      @id @default(autoincrement())
+  email              String   @unique @db.VarChar(100)
+  contrasena         String   @db.VarChar(255)
+  pNombre            String   @db.VarChar(60)
+  sNombre            String?  @db.VarChar(60)
+  apellidoP          String?  @db.VarChar(60)
+  apellidoM          String?  @db.VarChar(60)
+  telefono           String?  @db.VarChar(20)
+  emailVerificado    Boolean  @default(false) @db.TinyInt
+  activo             Boolean  @default(true) @db.TinyInt
+  fechaCreacion      DateTime @default(now())
+  fechaActualizacion DateTime @updatedAt
+
+  suscripciones Suscripcion[]
+  tiendas       Tienda[]
+
+  @@index([email])
+  @@index([activo])
+  @@map("cuenta_principal")
+}
+
+model PlanSuscripcion {
+  idPlan                 Int      @id @default(autoincrement())
+  nombre                 String   @db.VarChar(60)
+  descripcion            String?  @db.Text
+  precioMensual          Decimal  @db.Decimal(10, 2)
+  maxSucursales          Int      @default(1)
+  maxUsuariosPorSucursal Int      @default(5)
+  caracteristicas        Json?
+  activo                 Boolean  @default(true) @db.TinyInt
+  fechaCreacion          DateTime @default(now())
+
+  suscripciones Suscripcion[]
+
+  @@map("plan_suscripcion")
+}
+
+enum EstadoSuscripcion {
+  activa
+  pausada
+  cancelada
+  vencida
+}
+
+model Suscripcion {
+  idSuscripcion      Int               @id @default(autoincrement())
+  idCuentaPrincipal  Int
+  idPlan             Int
+  fechaInicio        DateTime
+  fechaFin           DateTime?
+  fechaProximoPago   DateTime
+  estado             EstadoSuscripcion @default(activa)
+  cantidadSucursales Int               @default(1)
+  montoTotal         Decimal           @db.Decimal(10, 2)
+  activo             Boolean           @default(true) @db.TinyInt
+  fechaCreacion      DateTime          @default(now())
+  fechaActualizacion DateTime          @updatedAt
+
+  cuentaPrincipal CuentaPrincipal @relation(fields: [idCuentaPrincipal], references: [idCuentaPrincipal], onDelete: Cascade)
+  plan            PlanSuscripcion @relation(fields: [idPlan], references: [idPlan])
+
+  @@index([idCuentaPrincipal])
+  @@index([idPlan])
+  @@index([estado])
+  @@map("suscripcion")
+}
+
+model Tienda {
+  idTienda           Int      @id @default(autoincrement())
+  idCuentaPrincipal  Int
+  nombre             String   @db.VarChar(100)
+  direccion          String?  @db.VarChar(255)
+  telefono           String?  @db.VarChar(20)
+  email              String?  @db.VarChar(100)
+  configuracion      Json?
+  activo             Boolean  @default(true) @db.TinyInt
+  fechaCreacion      DateTime @default(now())
+  fechaActualizacion DateTime @updatedAt
+
+  cuentaPrincipal CuentaPrincipal @relation(fields: [idCuentaPrincipal], references: [idCuentaPrincipal], onDelete: Cascade)
+
+  usuarios        Usuario[]
+  clasificaciones Clasificacion[]
+  proveedores     Proveedor[]
+  productos       Producto[]
+  clientes        Cliente[]
+  ventas          Venta[]
+
+  @@index([idCuentaPrincipal])
+  @@index([activo])
+  @@map("tienda")
+}
+
+model Rol {
+  idRol         Int      @id @default(autoincrement())
+  nombre        String   @db.VarChar(60)
+  descripcion   String?  @db.Text
+  nivel         Int      @default(0)
+  activo        Boolean  @default(true) @db.TinyInt
+  fechaCreacion DateTime @default(now())
+
+  usuarios Usuario[]
+  permisos RolPermiso[]
+
+  @@map("roles")
+}
+
+model Usuario {
+  idUsuario          Int       @id @default(autoincrement())
+  idTienda           Int
+  idRol              Int
+  email              String    @db.VarChar(100)
+  contrasena         String    @db.VarChar(255)
+  pNombre            String    @db.VarChar(60)
+  sNombre            String?   @db.VarChar(60)
+  apellidoP          String?   @db.VarChar(60)
+  apellidoM          String?   @db.VarChar(60)
+  curp               String?   @db.VarChar(18)
+  rfc                String?   @db.VarChar(13)
+  fechaNacimiento    DateTime? @db.Date
+  telefono           String?   @db.VarChar(20)
+  activo             Boolean   @default(true) @db.TinyInt
+  creadoPor          Int?
+  fechaCreacion      DateTime  @default(now())
+  fechaActualizacion DateTime  @updatedAt
+
+  tienda  Tienda   @relation(fields: [idTienda], references: [idTienda], onDelete: Cascade)
+  rol     Rol      @relation(fields: [idRol], references: [idRol])
+  creador Usuario? @relation("UsuarioCreador", fields: [creadoPor], references: [idUsuario], onDelete: SetNull)
+
+  usuariosCreados   Usuario[]       @relation("UsuarioCreador")
+  clasificaciones   Clasificacion[]
+  proveedores       Proveedor[]
+  productosCreados  Producto[]      @relation("ProductoCreador")
+  productosEditados Producto[]      @relation("ProductoEditor")
+  clientes          Cliente[]
+  ventas            Venta[]
+
+  @@unique([email, idTienda])
+  @@index([idTienda])
+  @@index([idRol])
+  @@index([creadoPor])
+  @@index([email])
+  @@map("usuario")
+}
+
+model Permiso {
+  idPermiso   Int     @id @default(autoincrement())
+  modulo      String  @db.VarChar(60)
+  descripcion String? @db.VarChar(255)
+  codigo      String  @unique @db.VarChar(60)
+  activo      Boolean @default(true) @db.TinyInt
+
+  roles RolPermiso[]
+
+  @@index([codigo])
+  @@map("permisos")
+}
+
+model RolPermiso {
+  idRol     Int
+  idPermiso Int
+  leer      Boolean @default(false) @db.TinyInt
+  crear     Boolean @default(false) @db.TinyInt
+  editar    Boolean @default(false) @db.TinyInt
+  eliminar  Boolean @default(false) @db.TinyInt
+
+  rol     Rol     @relation(fields: [idRol], references: [idRol], onDelete: Cascade)
+  permiso Permiso @relation(fields: [idPermiso], references: [idPermiso], onDelete: Cascade)
+
+  @@id([idRol, idPermiso])
+  @@index([idPermiso])
+  @@map("rol_permiso")
+}
+
+model Clasificacion {
+  idClasificacion    Int      @id @default(autoincrement())
+  idTienda           Int
+  nombre             String   @db.VarChar(100)
+  descripcion        String?  @db.Text
+  activo             Boolean  @default(true) @db.TinyInt
+  creadoPor          Int?
+  fechaCreacion      DateTime @default(now())
+  fechaActualizacion DateTime @updatedAt
+
+  tienda    Tienda     @relation(fields: [idTienda], references: [idTienda], onDelete: Cascade)
+  usuario   Usuario?   @relation(fields: [creadoPor], references: [idUsuario], onDelete: SetNull)
+  productos Producto[]
+
+  @@index([idTienda])
+  @@index([creadoPor])
+  @@map("clasificacion")
+}
+
+model Proveedor {
+  idProveedor        Int      @id @default(autoincrement())
+  idTienda           Int
+  nombre             String   @db.VarChar(100)
+  nombreContacto     String?  @db.VarChar(100)
+  email              String?  @db.VarChar(100)
+  telefono           String?  @db.VarChar(20)
+  direccion          String?  @db.VarChar(255)
+  rfc                String?  @db.VarChar(13)
+  activo             Boolean  @default(true) @db.TinyInt
+  creadoPor          Int?
+  fechaCreacion      DateTime @default(now())
+  fechaActualizacion DateTime @updatedAt
+
+  tienda    Tienda     @relation(fields: [idTienda], references: [idTienda], onDelete: Cascade)
+  usuario   Usuario?   @relation(fields: [creadoPor], references: [idUsuario], onDelete: SetNull)
+  productos Producto[]
+
+  @@index([idTienda])
+  @@index([creadoPor])
+  @@map("proveedor")
+}
+
+model Producto {
+  idProducto         Int      @id @default(autoincrement())
+  idTienda           Int
+  idClasificacion    Int?
+  idProveedor        Int?
+  codigoBarras       String?  @db.VarChar(60)
+  sku                String?  @db.VarChar(60)
+  nombre             String   @db.VarChar(150)
+  descripcion        String?  @db.Text
+  precio             Decimal  @db.Decimal(10, 2)
+  precioCompra       Decimal  @db.Decimal(10, 2)
+  usarInventario     Boolean  @default(true) @db.TinyInt
+  stock              Int      @default(0)
+  stockMin           Int      @default(0)
+  stockMax           Int      @default(0)
+  unidadMedida       String?  @default("PZA") @db.VarChar(20)
+  activo             Boolean  @default(true) @db.TinyInt
+  creadoPor          Int?
+  editadoPor         Int?
+  fechaCreacion      DateTime @default(now())
+  fechaActualizacion DateTime @updatedAt
+
+  tienda        Tienda         @relation(fields: [idTienda], references: [idTienda], onDelete: Cascade)
+  clasificacion Clasificacion? @relation(fields: [idClasificacion], references: [idClasificacion], onDelete: SetNull)
+  proveedor     Proveedor?     @relation(fields: [idProveedor], references: [idProveedor], onDelete: SetNull)
+  creador       Usuario?       @relation("ProductoCreador", fields: [creadoPor], references: [idUsuario], onDelete: SetNull)
+  editor        Usuario?       @relation("ProductoEditor", fields: [editadoPor], references: [idUsuario], onDelete: SetNull)
+
+  detallesVenta DetalleVenta[]
+  historial     HistorialInventario[]
+
+  @@index([idTienda])
+  @@index([idClasificacion])
+  @@index([idProveedor])
+  @@index([creadoPor])
+  @@index([codigoBarras])
+  @@index([sku])
+  @@map("producto")
+}
+
+model Cliente {
+  idCliente          Int       @id @default(autoincrement())
+  idTienda           Int
+  email              String?   @db.VarChar(100)
+  pNombre            String?   @db.VarChar(60)
+  sNombre            String?   @db.VarChar(60)
+  apellidoP          String?   @db.VarChar(60)
+  apellidoM          String?   @db.VarChar(60)
+  telefono           String?   @db.VarChar(20)
+  fechaNacimiento    DateTime? @db.Date
+  direccion          String?   @db.VarChar(255)
+  rfc                String?   @db.VarChar(13)
+  activo             Boolean   @default(true) @db.TinyInt
+  creadoPor          Int?
+  fechaCreacion      DateTime  @default(now())
+  fechaActualizacion DateTime  @updatedAt
+
+  tienda  Tienda   @relation(fields: [idTienda], references: [idTienda], onDelete: Cascade)
+  usuario Usuario? @relation(fields: [creadoPor], references: [idUsuario], onDelete: SetNull)
+
+  ventas Venta[]
+
+  @@index([idTienda])
+  @@index([creadoPor])
+  @@map("cliente")
+}
+
+model MetodoPago {
+  idMetodoPago Int     @id @default(autoincrement())
+  nombre       String  @db.VarChar(60)
+  activo       Boolean @default(true) @db.TinyInt
+
+  ventas Venta[]
+
+  @@map("metodo_pago")
+}
+
+enum EstadoVenta {
+  pendiente
+  completada
+  cancelada
+}
+
+enum TipoVenta {
+  local
+  online
+}
+
+model Venta {
+  idVenta            Int         @id @default(autoincrement())
+  idTienda           Int
+  idCliente          Int?
+  idMetodoPago       Int
+  folio              String?     @db.VarChar(50)
+  subtotal           Decimal     @db.Decimal(10, 2)
+  descuento          Decimal     @default(0) @db.Decimal(10, 2)
+  impuestos          Decimal     @default(0) @db.Decimal(10, 2)
+  propina            Decimal     @default(0) @db.Decimal(10, 2)
+  total              Decimal     @db.Decimal(10, 2)
+  estado             EstadoVenta @default(pendiente)
+  tipo               TipoVenta   @default(local)
+  creadoPor          Int?
+  fechaCreacion      DateTime    @default(now())
+  fechaActualizacion DateTime    @updatedAt
+
+  tienda     Tienda     @relation(fields: [idTienda], references: [idTienda], onDelete: Cascade)
+  cliente    Cliente?   @relation(fields: [idCliente], references: [idCliente], onDelete: SetNull)
+  metodoPago MetodoPago @relation(fields: [idMetodoPago], references: [idMetodoPago])
+  usuario    Usuario?   @relation(fields: [creadoPor], references: [idUsuario], onDelete: SetNull)
+
+  detalles  DetalleVenta[]
+  historial HistorialInventario[]
+
+  @@index([idTienda])
+  @@index([idCliente])
+  @@index([idMetodoPago])
+  @@index([creadoPor])
+  @@index([folio])
+  @@index([estado])
+  @@index([fechaCreacion])
+  @@map("venta")
+}
+
+model DetalleVenta {
+  idDetalleVenta Int     @id @default(autoincrement())
+  idVenta        Int
+  idProducto     Int
+  cantidad       Int
+  precioUnitario Decimal @db.Decimal(10, 2)
+  descuento      Decimal @default(0) @db.Decimal(10, 2)
+  subtotal       Decimal @db.Decimal(10, 2)
+
+  venta    Venta    @relation(fields: [idVenta], references: [idVenta], onDelete: Cascade)
+  producto Producto @relation(fields: [idProducto], references: [idProducto])
+
+  @@index([idVenta])
+  @@index([idProducto])
+  @@map("detalle_venta")
+}
+
+enum TipoMovimiento {
+  entrada
+  salida
+  ajuste
+  venta
+}
+
+model HistorialInventario {
+  idHistorial    Int            @id @default(autoincrement())
+  idProducto     Int
+  idVenta        Int?
+  tipoMovimiento TipoMovimiento
+  cantidad       Int
+  stockAnterior  Int
+  stockNuevo     Int
+  motivo         String?        @db.VarChar(255)
+  creadoPor      Int?
+  fechaCreacion  DateTime       @default(now())
+
+  producto Producto @relation(fields: [idProducto], references: [idProducto], onDelete: Cascade)
+  venta    Venta?   @relation(fields: [idVenta], references: [idVenta], onDelete: SetNull)
+
+  @@index([idProducto])
+  @@index([idVenta])
+  @@index([fechaCreacion])
+  @@map("historial_inventario")
+}
