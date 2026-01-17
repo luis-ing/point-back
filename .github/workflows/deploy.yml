@@ -21,4 +21,5 @@ jobs:
 
       - name: Start or restart app with PM2
         run: |
-          pm2 restart tienda-backend || pm2 start dist/index.js --name tienda-backend
+          pm2 restart tienda-backend || pm2 start dist/index.js --name tienda-backend -- start
+
