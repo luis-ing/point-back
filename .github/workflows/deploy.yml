@@ -1,4 +1,4 @@
-name: Deploy Node App to WSL
+name: Deploy Backend Node App
 
 on:
   push:
@@ -7,19 +7,23 @@ on:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
 
     steps:
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.0.0
-        with:
-          host: ${{ secrets.WSL_HOST }}
-          username: ${{ secrets.WSL_USER }}
-          key: ${{ secrets.WSL_SSH_KEY }}
-          script: |
-            cd ~/apps/point-back
-            git pull origin main
-            npm install
-            npm run build
-            pm2 delete point-back || true
-            pm2 start dist/index.js --name point-back --update-env
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          cd ~/apps/point-back
+          npm install
+
+      - name: Build project
+        run: |
+          cd ~/apps/point-back
+          npm run build
+
+      - name: Start or restart app with PM2
+        run: |
+          cd ~/apps/point-back
+          pm2 restart tienda-backend || pm2 start dist/index.js --name tienda-backend
