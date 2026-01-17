@@ -2,7 +2,7 @@ import jwt, { SignOptions } from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'tu_secreto_super_seguro';
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7D';
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 
 export interface JWTPayload {
   idCuentaPrincipal?: number;
@@ -28,7 +28,7 @@ export class AuthUtils {
   }
 
   static generateToken(payload: JWTPayload): string {
-    const options: SignOptions = { expiresIn: JWT_EXPIRES_IN };
+    const options: SignOptions = { expiresIn: JWT_EXPIRES_IN as SignOptions['expiresIn'] };
     return jwt.sign(payload, JWT_SECRET, options);
   }
 
